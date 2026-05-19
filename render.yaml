@@ -37,6 +37,5 @@ services:
         fromService:
           type: web
           name: atomquest-backend
-          envVarKey: RENDER_EXTERNAL_URL
-          property: value
-          format: "{value}/api"
+          property: host
+          format: "https://{value}/api"
