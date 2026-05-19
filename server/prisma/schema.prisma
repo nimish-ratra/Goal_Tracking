@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(EMPLOYEE)
+  department    String?
+  managerId     String?
+  manager       User?    @relation("Reports", fields: [managerId], references: [id])
+  reports       User[]   @relation("Reports")
+  goals         Goal[]   @relation("OwnerGoals")
+  sharedGoals   SharedGoalRecipient[]
+  checkIns      CheckIn[] @relation("ManagerCheckIns")
+  auditLogs     AuditLog[]
+  azureOid      String?  @unique
+  ssoProvider   String?  @default("local") // 'local' or 'azure'
+  escalationsAsTarget EscalationLog[] @relation("EscalationTarget")
+  escalationsNotified EscalationLog[] @relation("EscalationNotified")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  ADMIN
+}
+
+model Goal {
+  id            String       @id @default(uuid())
+  ownerId       String
+  owner         User         @relation("OwnerGoals", fields: [ownerId], references: [id])
+  cycleId       String
+  cycle         Cycle        @relation(fields: [cycleId], references: [id])
+  thrustArea    String
+  title         String
+  description   String?
+  uom           UoM
+  target        Float
+  weightage     Float
+  status        GoalStatus   @default(DRAFT)
+  isShared      Boolean      @default(false)
+  sharedGroupId String?      // links shared goals together
+  returnComment String?      // manager comment when returned
+  isLocked      Boolean      @default(false)
+  quarterlyData QuarterlyData[]
+  sharedRecipients SharedGoalRecipient[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([ownerId, cycleId])
+}
+
+enum UoM {
+  NUMERIC_MIN   // higher is better
+  NUMERIC_MAX   // lower is better
+  TIMELINE
+  ZERO
+}
+
+enum GoalStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  RETURNED
+  LOCKED
+}
+
+model SharedGoalRecipient {
+  id          String   @id @default(uuid())
+  goalId      String
+  goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient   User     @relation(fields: [recipientId], references: [id])
+  weightage   Float    // recipient can adjust their own weightage
+  createdAt   DateTime @default(now())
+  @@unique([goalId, recipientId])
+}
+
+model Cycle {
+  id          String   @id @default(uuid())
+  year        Int
+  label       String   // e.g. "FY 2025-26"
+  settingOpen DateTime
+  settingClose DateTime
+  isActive    Boolean  @default(false)
+  goals       Goal[]
+  quarters    Quarter[]
+  createdAt   DateTime @default(now())
+}
+
+model Quarter {
+  id          String         @id @default(uuid())
+  cycleId     String
+  cycle       Cycle          @relation(fields: [cycleId], references: [id])
+  label       String         // Q1, Q2, Q3, Q4
+  windowOpen  DateTime
+  windowClose DateTime
+  quarterlyData QuarterlyData[]
+  checkIns    CheckIn[]
+}
+
+model QuarterlyData {
+  id          String          @id @default(uuid())
+  goalId      String
+  goal        Goal            @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  quarterId   String
+  quarter     Quarter         @relation(fields: [quarterId], references: [id])
+  actual      Float?
+  completionDate DateTime?    // for TIMELINE UoM
+  progressStatus ProgressStatus @default(NOT_STARTED)
+  score       Float?          // computed by server
+  checkIn     CheckIn?
+  submittedAt DateTime?
+  @@unique([goalId, quarterId])
+  @@index([goalId, quarterId])
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  ON_TRACK
+  COMPLETED
+}
+
+model CheckIn {
+  id              String        @id @default(uuid())
+  quarterlyDataId String        @unique
+  quarterlyData   QuarterlyData @relation(fields: [quarterlyDataId], references: [id])
+  quarterId       String
+  quarter         Quarter       @relation(fields: [quarterId], references: [id])
+  managerId       String
+  manager         User          @relation("ManagerCheckIns", fields: [managerId], references: [id])
+  comment         String
+  checkedInAt     DateTime      @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  goalId      String?
+  goal        Goal?    @relation(fields: [goalId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  action      String   // e.g. "GOAL_EDITED_AFTER_LOCK", "GOAL_UNLOCKED", "GOAL_APPROVED"
+  field       String?  // which field changed
+  oldValue    String?
+  newValue    String?
+  reason      String?
+  timestamp   DateTime @default(now())
+
+  @@index([goalId])
+  @@index([userId])
+  @@index([timestamp])
+}
+
+model EscalationRule {
+  id              String     @id @default(uuid())
+  name            String
+  triggerType     EscalationTrigger
+  delayDays       Int        // N days after trigger condition is met
+  escalationLevel Int        // 1=first reminder, 2=manager escalation, 3=HR/skip-level
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  escalationLogs  EscalationLog[]
+}
+
+enum EscalationTrigger {
+  GOAL_NOT_SUBMITTED       // Employee hasn't submitted within N days of cycle open
+  GOAL_NOT_APPROVED        // Manager hasn't approved within N days of submission
+  CHECKIN_NOT_COMPLETED    // Check-in not done within N days of window open
+}
+
+model EscalationLog {
+  id              String          @id @default(uuid())
+  ruleId          String
+  rule            EscalationRule  @relation(fields: [ruleId], references: [id])
+  targetUserId    String          // The person being escalated (employee or manager)
+  targetUser      User            @relation("EscalationTarget", fields: [targetUserId], references: [id])
+  escalatedToId   String          // Who was notified (manager, skip-level, HR)
+  escalatedTo     User            @relation("EscalationNotified", fields: [escalatedToId], references: [id])
+  triggerType     EscalationTrigger
+  status          EscalationStatus @default(PENDING)
+  resolvedAt      DateTime?
+  resolvedById    String?
+  notificationSentAt DateTime     @default(now())
+  context         Json            // { cycleId, quarterId, goalIds, daysOverdue }
+  createdAt       DateTime        @default(now())
+}
+
+enum EscalationStatus {
+  PENDING
+  RESOLVED
+  ACKNOWLEDGED
+}

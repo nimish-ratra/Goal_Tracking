@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #333; line-height: 1.6; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .banner { background-color: #f59e0b; color: white; padding: 15px 20px; border-radius: 8px 8px 0 0; }
+    .content { padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }
+    .blockquote { background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    .btn { display: inline-block; background-color: #f59e0b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+    .footer { margin-top: 20px; font-size: 12px; color: #6b7280; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="banner">
+      <h2 style="margin: 0;">⚠️ Goals Need Revision</h2>
+    </div>
+    <div class="content">
+      <p><strong>{{managerName}}</strong> has returned your goal sheet for <strong>{{cycleLabel}}</strong> with the following feedback:</p>
+      
+      <div class="blockquote">
+        <em>"{{returnComment}}"</em>
+      </div>
+      
+      <p>Please adjust your goals according to the feedback and submit them again.</p>
+      
+      <p style="text-align: center;">
+        <a href="{{appUrl}}/employee/goals" class="btn">Revise My Goals</a>
+      </p>
+    </div>
+    <div class="footer">AtomQuest Goal Tracking Portal</div>
+  </div>
+</body>
+</html>
