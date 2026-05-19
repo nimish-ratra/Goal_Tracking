@@ -9,6 +9,7 @@
     "db:migrate": "npm run db:migrate --prefix server",
     "db:seed": "npm run db:seed --prefix server",
     "db:studio": "npm run db:studio --prefix server",
+    "postinstall": "npm install --prefix client && npm install --prefix server",
     "build": "npm run build --prefix client"
   },
   "devDependencies": {
