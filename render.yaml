@@ -1,17 +1,16 @@
-services:
-  # 1. PostgreSQL Database
-  - type: psql
-    name: atomquest-db
+databases:
+  - name: atomquest-db
     plan: free
-    postgresMajorVersion: 15
+    postgresMajorVersion: "15"
 
-  # 2. Node.js Express Backend
+services:
+  # 1. Node.js Express Backend
   - type: web
     name: atomquest-backend
     env: node
     plan: free
     rootDir: server
-    buildCommand: npm install && npx prisma generate
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy
     startCommand: npm start
     envVars:
       - key: DATABASE_URL
@@ -25,7 +24,7 @@ services:
       - key: NODE_ENV
         value: production
 
-  # 3. React Static Frontend
+  # 2. React Static Frontend
   - type: web
     name: atomquest-frontend
     env: static
